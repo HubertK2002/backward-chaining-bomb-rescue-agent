@@ -27,4 +27,4 @@ cmake --preset ninja-debug -DCMAKE_TOOLCHAIN_FILE=C:/path/to/vcpkg/scripts/build
 cmake --build --preset ninja-debug
 ```
 
-Wybór mapy: strzałki i Enter. Podczas symulacji `Space` wykonuje krok, Enter uruchamia/zatrzymuje automatykę, `R` resetuje symulację, strzałki przewijają historię, a Esc zamyka okno.
+Wybór mapy: strzałki i Enter. Podczas symulacji `Space` wykonuje krok, Enter uruchamia/zatrzymuje automatykę, `R` resetuje symulację, `M` wraca do wyboru mapy, strzałki przewijają historię, a Esc zamyka okno.

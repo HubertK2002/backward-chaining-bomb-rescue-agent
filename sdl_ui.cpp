@@ -112,8 +112,9 @@ void draw(Ui&u,Simulation&s,int scroll,bool running){
     label(u,status,sx,167,s.env->IsFinished()?SDL_Color{106,218,156,255}:SDL_Color{180,190,205,255});
     button(u,{sx,200,105,38},"STEP  SPACE");button(u,{sx+114,200,112,38},running?"PAUSE ENTER":"RUN ENTER",running);
     button(u,{sx+235,200,100,38},"RESET  R");
-    label(u,"Decision history (UP/DOWN to scroll)",sx,254,{170,184,204,255});
-    const auto& history=s.agent->GetHistory();int y=282;int end=std::max(0,(int)history.size()-scroll);int first=std::max(0,end-18);
+    button(u,{sx,242,140,34},"MAP MENU  M");
+    label(u,"Decision history (UP/DOWN to scroll)",sx,286,{170,184,204,255});
+    const auto& history=s.agent->GetHistory();int y=314;int end=std::max(0,(int)history.size()-scroll);int first=std::max(0,end-18);
     for(int i=first;i<end;i++){
         const auto&e=history[i];std::string line="S"+std::to_string(e.situation)+" ["+e.kind+"] ";
         if(!e.premises.empty()) line+=e.premises.front()+" -> ";
@@ -129,23 +130,32 @@ void draw(Ui&u,Simulation&s,int scroll,bool running){
 int RunSdlApplication(const std::string& mapDirectory){
     Ui ui;const auto maps=getMaps(mapDirectory);if(maps.empty())throw std::runtime_error("No .txt maps found in "+mapDirectory);
     std::string path=selectMap(ui,maps);if(path.empty())return 0;
-    Simulation sim(path);bool quit=false,running=false;int scroll=0;Uint32 last=SDL_GetTicks();
-    while(!quit){SDL_Event e;while(SDL_PollEvent(&e)){
+    while(!path.empty()) {
+    Simulation sim(path);bool quit=false,running=false,returnToMaps=false;int scroll=0;Uint32 last=SDL_GetTicks();
+    while(!quit&&!returnToMaps){SDL_Event e;while(SDL_PollEvent(&e)){
         if(e.type==SDL_QUIT)quit=true;
         if(e.type==SDL_KEYDOWN){auto k=e.key.keysym.sym;
             if(k==SDLK_ESCAPE)quit=true;
+            if(k==SDLK_m){returnToMaps=true;running=false;}
             if(k==SDLK_SPACE)sim.advance();
             if(k==SDLK_RETURN)running=!running;
             if(k==SDLK_r){sim.reset(path);scroll=0;}
             if(k==SDLK_UP)scroll=std::min(scroll+1,(int)sim.agent->GetHistory().size());
             if(k==SDLK_DOWN)scroll=std::max(0,scroll-1);
         }
-        if(e.type==SDL_MOUSEBUTTONDOWN){if(e.button.y>=200&&e.button.y<240){int w,h;SDL_GetWindowSize(ui.window,&w,&h);int sx=w-370;
+        if(e.type==SDL_MOUSEBUTTONDOWN){if(e.button.y>=242&&e.button.y<278){int w,h;SDL_GetWindowSize(ui.window,&w,&h);int sx=w-370;
+                if(e.button.x>=sx&&e.button.x<sx+145)returnToMaps=true;
+            }
+            if(e.button.y>=200&&e.button.y<240){int w,h;SDL_GetWindowSize(ui.window,&w,&h);int sx=w-370;
                 if(e.button.x>=sx&&e.button.x<sx+110)sim.advance();else if(e.button.x<sx+230)running=!running;else if(e.button.x<sx+345){sim.reset(path);scroll=0;}}
         }
     }
     Uint32 now=SDL_GetTicks();if(running&&now-last>=400){sim.advance();last=now;}
-    draw(ui,sim,scroll,running);SDL_Delay(8);
+    if(!returnToMaps){draw(ui,sim,scroll,running);SDL_Delay(8);}
     }
-    sim.agent->SaveHistoryToFile("agent_history.log");return 0;
+    sim.agent->SaveHistoryToFile("agent_history.log");
+    if(quit)return 0;
+    path=selectMap(ui,maps);
+    }
+    return 0;
 }
