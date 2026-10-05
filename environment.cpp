@@ -1,8 +1,6 @@
 #include "environment.h"
-#include <iostream>
 #include <fstream>
 #include <stdexcept>
-#include <iomanip>
 
 using namespace std;
 
@@ -39,8 +37,16 @@ Position Environment::GetExitPosition() const {
 	return exitPosition;
 }
 
+Position Environment::GetBombPosition() const {
+	return bombPosition;
+}
+
 bool Environment::IsBombPicked() const {
 	return bombPicked;
+}
+
+bool Environment::IsBombExploded() const {
+	return bombExploded;
 }
 
 bool Environment::BombSignalAt(Position p) const {
@@ -197,32 +203,3 @@ bool Environment::MissionFailed() const {
 bool Environment::IsFinished() const {
 	return MissionSucceeded() || MissionFailed();
 }
-
-void Environment::Draw(bool showMetrics) const {
-	cout << "\nMap:\n";
-	for (int y = 0; y < size; y++) {
-		for (int x = 0; x < size; x++) {
-			if (agentPosition.x == x && agentPosition.y == y) {
-				cout << "A ";
-			}
-			else if (walls[y][x]) {
-				cout << "X ";
-			}
-			else if (!bombPicked && bombPosition.x == x && bombPosition.y == y) {
-				cout << "B ";
-			}
-			else if (exitPosition.x == x && exitPosition.y == y) {
-				cout << "E ";
-			}
-			else {
-				cout << ". ";
-			}
-		}
-		cout << "\n";
-	}
-	if (showMetrics) {
-		cout << "Total cost: " << totalCost << "\n";
-		cout << "Stun remaining: " << stunRemaining << "\n";
-	}
-}
-

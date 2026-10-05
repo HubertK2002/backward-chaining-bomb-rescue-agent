@@ -1,5 +1,4 @@
 #include "knowledge_reasoner.h"
-#include <iostream>
 
 using namespace std;
 

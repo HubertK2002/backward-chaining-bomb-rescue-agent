@@ -22,7 +22,6 @@ public:
 	Environment();
 
 	void LoadFromFile(const std::string& filename);
-	void Draw(bool showMetrics = true) const;
 
 	Percept GetPercept() const;
 	Action ExecuteAction(const Action& action);
@@ -37,7 +36,9 @@ public:
 
 	Position GetAgentPosition() const;
 	Position GetExitPosition() const;
+	Position GetBombPosition() const;
 	bool IsBombPicked() const;
+	bool IsBombExploded() const;
 
 	bool IsInside(int x, int y) const;
 	bool HasWall(int x, int y) const;

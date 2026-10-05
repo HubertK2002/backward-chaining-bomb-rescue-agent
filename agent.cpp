@@ -1,5 +1,4 @@
 #include "agent.h"
-#include <iostream>
 #include <cmath>
 #include <algorithm>
 #include <sstream>
@@ -783,18 +782,8 @@ int Agent::GetCurrentSituation() const {
 	return situationCounter;
 }
 
-void Agent::PrintHistory() const {
-	for (const auto& entry : kb.GetHistory()) {
-		cout << "[S" << entry.situation << "][" << entry.kind << "] ";
-		if (!entry.premises.empty()) {
-			for (int i = 0; i < (int)entry.premises.size(); i++) {
-				if (i > 0) cout << " /\\ ";
-				cout << entry.premises[i];
-			}
-			cout << " => ";
-		}
-		cout << entry.conclusion << "\n";
-	}
+const vector<HistoryEntry>& Agent::GetHistory() const {
+	return kb.GetHistory();
 }
 
 bool Agent::SaveHistoryToFile(const string& filename) const {

@@ -54,6 +54,6 @@ public:
 	std::string GetLastGoalInference() const;
 	std::string GetCurrentGoal() const;
 	int GetCurrentSituation() const;
-	void PrintHistory() const;
 	bool SaveHistoryToFile(const std::string& filename) const;
+	const std::vector<HistoryEntry>& GetHistory() const;
 };
