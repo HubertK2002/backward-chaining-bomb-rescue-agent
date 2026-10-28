@@ -1,3 +1,7 @@
 /build/
+/build-web/
 /cmake-build-*/
 /agent_history.log
+/main.exe
+/main_nobfs.exe
+/run_map2.txt

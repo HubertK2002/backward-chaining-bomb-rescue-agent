@@ -4,6 +4,9 @@
 
 #include <SDL.h>
 #include <SDL_ttf.h>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 #include <algorithm>
 #include <cstdlib>
@@ -26,9 +29,15 @@ struct Ui {
                                 1280,800,SDL_WINDOW_RESIZABLE);
         renderer=SDL_CreateRenderer(window,-1,SDL_RENDERER_ACCELERATED|SDL_RENDERER_PRESENTVSYNC);
         if(!window||!renderer) throw std::runtime_error(SDL_GetError());
-        const char* paths[]={"C:/Windows/Fonts/consola.ttf","C:/Windows/Fonts/arial.ttf",
+        const char* paths[]={
+#ifdef __EMSCRIPTEN__
+            "/fonts/DejaVuSans.ttf"
+#else
+            "C:/Windows/Fonts/consola.ttf","C:/Windows/Fonts/arial.ttf",
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf"};
+            "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf"
+#endif
+        };
         for(const char* path:paths) if(std::filesystem::exists(path)) { font=TTF_OpenFont(path,15); if(font)break; }
         if(!font) throw std::runtime_error("No usable TTF font found (DejaVu Sans, Liberation Sans, or Arial)");
     }
@@ -79,7 +88,12 @@ std::string selectMap(Ui&u,const std::vector<std::string>&maps){
         SDL_Rect r{34,120+i*42,650,36};set(u.renderer,i==selected?SDL_Color{47,116,139,255}:SDL_Color{42,52,67,255});SDL_RenderFillRect(u.renderer,&r);
         label(u,std::filesystem::path(maps[i]).filename().string(),r.x+12,r.y+9);
     }
-    SDL_RenderPresent(u.renderer);SDL_Delay(16);
+    SDL_RenderPresent(u.renderer);
+#ifdef __EMSCRIPTEN__
+    emscripten_sleep(16);
+#else
+    SDL_Delay(16);
+#endif
     }
     if(quit) return {};
     if(maps.empty()) throw std::runtime_error("No .txt maps found in "+std::filesystem::absolute("maps").string());
@@ -92,29 +106,40 @@ void draw(Ui&u,Simulation&s,int scroll,bool running){
     int mapX=pad,mapY=std::max(pad,(wh-s.env->GetSize()*cell)/2);
     Position agent=s.env->GetAgentPosition(),bomb=s.env->GetBombPosition(),exit=s.env->GetExitPosition();
     Percept p=s.env->GetPercept();
+    const auto& rememberedPath=s.agent->GetMainPath();
+    const auto& rememberedExitPath=s.agent->GetKnownExitPath();
     for(int y=0;y<s.env->GetSize();y++)for(int x=0;x<s.env->GetSize();x++){
         SDL_Rect cellRect{mapX+x*cell,mapY+y*cell,cell-2,cell-2};SDL_Color fill{34,43,55,255};
         if(p.bombSensed&&!s.env->IsBombPicked()&&abs(x-agent.x)<=2&&abs(y-agent.y)<=2)fill={63,75,76,255};
         if(s.env->HasWall(x,y))fill={80,87,98,255};
-        if(exit.x==x&&exit.y==y)fill={54,157,115,255};
+        const bool onKnownPath=std::any_of(rememberedPath.begin(),rememberedPath.end(),[&](const Position& pos){return pos.x==x&&pos.y==y;});
+        const bool onKnownExitPath=s.agent->HasSeenExit()&&std::any_of(rememberedExitPath.begin(),rememberedExitPath.end(),[&](const Position& pos){return pos.x==x&&pos.y==y;});
+        if(!s.env->HasWall(x,y)&&onKnownPath)fill={43,91,108,255};
+        if(!s.env->HasWall(x,y)&&onKnownExitPath)fill={132,105,55,255};
+        if(exit.x==x&&exit.y==y)fill=s.agent->HasSeenExit()?SDL_Color{210,164,67,255}:SDL_Color{54,157,115,255};
         if(!s.env->IsBombPicked()&&bomb.x==x&&bomb.y==y)fill={207,138,61,255};
         if(agent.x==x&&agent.y==y)fill={70,154,220,255};
-        set(r,fill);SDL_RenderFillRect(r,&cellRect);set(r,{53,64,79,255});SDL_RenderDrawRect(r,&cellRect);
+        set(r,fill);SDL_RenderFillRect(r,&cellRect);
+        const Position knownExit=s.agent->GetSeenExitPosition();
+        set(r,s.agent->HasSeenExit()&&knownExit.x==x&&knownExit.y==y?SDL_Color{255,224,141,255}:SDL_Color{53,64,79,255});
+        SDL_RenderDrawRect(r,&cellRect);
         std::string mark="";if(agent.x==x&&agent.y==y)mark="A";else if(!s.env->IsBombPicked()&&bomb.x==x&&bomb.y==y)mark="B";else if(exit.x==x&&exit.y==y)mark="E";else if(s.env->HasWall(x,y))mark="X";
         if(!mark.empty())label(u,mark,cellRect.x+cell/2-5,cellRect.y+cell/2-9);
     }
     int sx=ww-side;label(u,"PROJECT 2 | BACKWARD REASONING",sx,24,{115,211,196,255});
     label(u,"A agent   B bomb   E exit   X wall",sx,53);
-    label(u,"STEP "+std::to_string(s.step)+" / 200   COST "+std::to_string(s.env->GetTotalCost()),sx,84);
-    label(u,"GOAL: "+s.agent->GetCurrentGoal(),sx,111,{245,203,111,255});
-    label(u,"LAST ACTION: "+s.lastAction,sx,139);
+    label(u,"Blue-green: remembered path",sx,72,{105,190,205,255});
+    label(u,"Gold: path to remembered exit",sx,91,{232,193,105,255});
+    label(u,"STEP "+std::to_string(s.step)+" / 200   COST "+std::to_string(s.env->GetTotalCost()),sx,113);
+    label(u,"GOAL: "+s.agent->GetCurrentGoal(),sx,138,{245,203,111,255});
+    label(u,"LAST ACTION: "+s.lastAction,sx,162);
     std::string status=s.env->MissionSucceeded()?"MISSION SUCCEEDED":s.env->MissionFailed()?"MISSION FAILED":s.step>=200?"STEP LIMIT REACHED":s.env->IsBombPicked()?"CARRYING THE BOMB":"SEARCHING";
-    label(u,status,sx,167,s.env->IsFinished()?SDL_Color{106,218,156,255}:SDL_Color{180,190,205,255});
-    button(u,{sx,200,105,38},"STEP  SPACE");button(u,{sx+114,200,112,38},running?"PAUSE ENTER":"RUN ENTER",running);
-    button(u,{sx+235,200,100,38},"RESET  R");
-    button(u,{sx,242,140,34},"MAP MENU  M");
-    label(u,"Decision history (UP/DOWN to scroll)",sx,286,{170,184,204,255});
-    const auto& history=s.agent->GetHistory();int y=314;int end=std::max(0,(int)history.size()-scroll);int first=std::max(0,end-18);
+    label(u,status,sx,186,s.env->IsFinished()?SDL_Color{106,218,156,255}:SDL_Color{180,190,205,255});
+    button(u,{sx,213,105,38},"STEP  SPACE");button(u,{sx+114,213,112,38},running?"PAUSE ENTER":"RUN ENTER",running);
+    button(u,{sx+235,213,100,38},"RESET  R");
+    button(u,{sx,254,140,34},"MAP MENU  M");
+    label(u,"Decision history (UP/DOWN to scroll)",sx,296,{170,184,204,255});
+    const auto& history=s.agent->GetHistory();int y=324;int end=std::max(0,(int)history.size()-scroll);int first=std::max(0,end-18);
     for(int i=first;i<end;i++){
         const auto&e=history[i];std::string line="S"+std::to_string(e.situation)+" ["+e.kind+"] ";
         if(!e.premises.empty()) line+=e.premises.front()+" -> ";
@@ -143,15 +168,22 @@ int RunSdlApplication(const std::string& mapDirectory){
             if(k==SDLK_UP)scroll=std::min(scroll+1,(int)sim.agent->GetHistory().size());
             if(k==SDLK_DOWN)scroll=std::max(0,scroll-1);
         }
-        if(e.type==SDL_MOUSEBUTTONDOWN){if(e.button.y>=242&&e.button.y<278){int w,h;SDL_GetWindowSize(ui.window,&w,&h);int sx=w-370;
+        if(e.type==SDL_MOUSEBUTTONDOWN){if(e.button.y>=254&&e.button.y<290){int w,h;SDL_GetWindowSize(ui.window,&w,&h);int sx=w-370;
                 if(e.button.x>=sx&&e.button.x<sx+145)returnToMaps=true;
             }
-            if(e.button.y>=200&&e.button.y<240){int w,h;SDL_GetWindowSize(ui.window,&w,&h);int sx=w-370;
+            if(e.button.y>=213&&e.button.y<251){int w,h;SDL_GetWindowSize(ui.window,&w,&h);int sx=w-370;
                 if(e.button.x>=sx&&e.button.x<sx+110)sim.advance();else if(e.button.x<sx+230)running=!running;else if(e.button.x<sx+345){sim.reset(path);scroll=0;}}
         }
     }
     Uint32 now=SDL_GetTicks();if(running&&now-last>=400){sim.advance();last=now;}
-    if(!returnToMaps){draw(ui,sim,scroll,running);SDL_Delay(8);}
+    if(!returnToMaps){
+        draw(ui,sim,scroll,running);
+#ifdef __EMSCRIPTEN__
+        emscripten_sleep(8);
+#else
+        SDL_Delay(8);
+#endif
+    }
     }
     sim.agent->SaveHistoryToFile("agent_history.log");
     if(quit)return 0;

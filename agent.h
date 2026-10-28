@@ -54,6 +54,10 @@ public:
 	std::string GetLastGoalInference() const;
 	std::string GetCurrentGoal() const;
 	int GetCurrentSituation() const;
+	const std::vector<Position>& GetMainPath() const;
+	const std::vector<Position>& GetKnownExitPath() const;
+	bool HasSeenExit() const;
+	Position GetSeenExitPosition() const;
 	bool SaveHistoryToFile(const std::string& filename) const;
 	const std::vector<HistoryEntry>& GetHistory() const;
 };

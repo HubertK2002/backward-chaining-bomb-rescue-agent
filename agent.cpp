@@ -782,6 +782,22 @@ int Agent::GetCurrentSituation() const {
 	return situationCounter;
 }
 
+const vector<Position>& Agent::GetMainPath() const {
+	return mainPath;
+}
+
+const vector<Position>& Agent::GetKnownExitPath() const {
+	return knownExitPath;
+}
+
+bool Agent::HasSeenExit() const {
+	return hasSeenExit;
+}
+
+Position Agent::GetSeenExitPosition() const {
+	return seenExit;
+}
+
 const vector<HistoryEntry>& Agent::GetHistory() const {
 	return kb.GetHistory();
 }
